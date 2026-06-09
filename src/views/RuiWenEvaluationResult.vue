@@ -47,7 +47,7 @@ export default {
       return this.$route.query.answerCount || 72;
     },
     finishTime() {
-      return this.$route.query.finishTime || "2026-02-02 22:38:26";
+      return this.$route.query.finishTime || "1970-00-00 00:00:00";
     },
     durationText() {
       return this.$route.query.durationText || DEFAULT_DURATION_TEXT;

@@ -7,15 +7,12 @@ export function me() {
 
 // 微信登录
 export function wxLogin() {
-    // return get("/evaluation_system/user/wxLogin");
-    // window.location.href = "/api/evaluation_system/user/wxLogin";
     const redirect = encodeURIComponent(window.location.pathname + window.location.search);
     window.location.href = `/api/evaluation_system/user/wxLogin?redirect=${redirect}`;
 }
 
 // 微信支付
 export function wxPay(recordId) {
-    // return post("/evaluation_system/payment/wxPay");
     return get(`/evaluation_system/payment/wxPay/${recordId}`);
 }
 

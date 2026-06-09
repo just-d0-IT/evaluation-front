@@ -2,9 +2,13 @@
 import {getTempAnswer, queryQuestion, restartEvaluation, saveTempAnswer, submitAnalysis} from "@/services/getData";
 import {wxLogin} from "@/services/wx";
 import {Dialog} from "vant";
+import CountUpTimer from "@/components/CountUpTimer.vue";
 
 export default {
   name: "RuiWenEvaluation",
+  components: {
+    CountUpTimer
+  },
   data() {
     return {
       // 当前试卷 ID
@@ -15,8 +19,6 @@ export default {
       totalQuestionNumber: 72,
       // 当前所在题目编号，从 1 开始
       currentQuestionNumber: 1,
-      // 当前登录用户 ID（可从登录信息或接口中获取）
-      // userId: '',
       // 当前进度百分比（用于进度条展示）
       percent: 0,
       // 当前题目的已选答案（A、B、C...）
@@ -83,7 +85,10 @@ export default {
       // 加载数据
       await this.initAgeOptions();
       await this.initTempAnswer();
+      // 开始计时
+      this.$refs.countUpTimer.start();
     },
+
     /**
      * @description 初始化：年龄选项
      */
@@ -323,18 +328,41 @@ export default {
       this.agePickerIndex = index;
       this.showSubmitDialog = false;
 
+      // 停止计时，获取总耗时（秒）
+      const elapsedTime = this.$refs.countUpTimer.stop();
+
       // 🚀 直接提交
       try {
         const res = await submitAnalysis({
           paperId: this.paperId,
           // userId: this.userId,
           age: this.selectedAge,
-          answerDetails: JSON.stringify(this.answers)
+          answerDetails: JSON.stringify(this.answers),
+          elapsedTime: elapsedTime // 传递总耗时（秒）
         });
 
         if (res.code === "0") {
           this.$toast.success("提交成功");
-          this.$router.push('/ruiWenEvaluationResult/');
+
+          // 格式化完成时间
+          const now = new Date();
+          const finishTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+
+          // 格式化用时（秒 -> X分Y秒）
+          const minutes = Math.floor(elapsedTime / 60);
+          const seconds = elapsedTime % 60;
+          const durationText = minutes > 0 ? `${minutes}分${seconds}秒` : `${seconds}秒`;
+
+          this.$router.push({
+            path: '/ruiWenEvaluationResult/',
+            query: {
+              paperName: this.paperName || '瑞文智商测试',
+              answerCount: String(this.totalQuestionNumber),
+              finishTime: finishTime,
+              durationText: durationText,
+              participantCount: res.data && res.data.participantCount ? res.data.participantCount : '175.31万'
+            }
+          });
         } else {
           this.$toast.fail(res.message || "提交失败");
         }
@@ -377,7 +405,10 @@ export default {
           :pivot-text="percent + '%'"
           class="progress"
       />
-      <div class="question-meta">第{{ currentQuestionNumber }}/{{ totalQuestionNumber }}题</div>
+      <div class="question-meta">
+        <span>第{{ currentQuestionNumber }}/{{ totalQuestionNumber }}题</span>
+        <count-up-timer ref="countUpTimer" />
+      </div>
       <div class="question-instruction">请选择一个最适合填入空缺中的图形</div>
     </div>
 
@@ -489,7 +520,9 @@ export default {
 
 /* 顶部元信息样式 */
 .question-meta {
-  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin: 8px 16px;
   font-size: 16px;
 }
