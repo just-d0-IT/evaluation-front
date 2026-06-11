@@ -1,5 +1,5 @@
 <script>
-import {getTempAnswer, queryQuestion, restartEvaluation, saveTempAnswer, submitAnalysis} from "@/services/getData";
+import {getAnalysisRecord, getTempAnswer, queryQuestion, restartEvaluation, saveTempAnswer, submitAnalysis} from "@/services/getData";
 import {wxLogin} from "@/services/wx";
 import {Dialog} from "vant";
 import CountUpTimer from "@/components/CountUpTimer.vue";
@@ -39,6 +39,16 @@ export default {
       autoNextTimer: null,
       // 延迟时长（ms），可根据体验调整
       AUTO_NEXT_DELAY: 300,
+      // 是否正在提交分析
+      submitting: false,
+      // 报告轮询定时器ID
+      reportPollingTimer: null,
+      // 报告轮询次数
+      reportPollingCount: 0,
+      // 报告轮询间隔（ms）
+      REPORT_POLL_INTERVAL: 3000,
+      // 报告最大轮询次数
+      REPORT_POLL_MAX_COUNT: 60,
     }
   },
 
@@ -65,11 +75,12 @@ export default {
   },
 
   beforeDestroy() {
-    if (!this.isFinished) {
+    if (!this.isFinished && !this.submitting) {
       this.saveTemp();
     }
     // 组件销毁时清除定时器
     this.clearAutoTimer();
+    this.clearReportPolling();
   },
 
   methods: {
@@ -148,6 +159,14 @@ export default {
       if (this.autoNextTimer) {
         clearTimeout(this.autoNextTimer);
         this.autoNextTimer = null;
+      }
+    },
+
+    /** 清除报告轮询定时器 */
+    clearReportPolling() {
+      if (this.reportPollingTimer) {
+        clearTimeout(this.reportPollingTimer);
+        this.reportPollingTimer = null;
       }
     },
 
@@ -321,8 +340,53 @@ export default {
       this.showSubmitDialog = true;
     },
 
+    async waitReportReady(recordId) {
+      this.clearReportPolling();
+      this.reportPollingCount = 0;
+      this.$toast.loading({
+        message: '报告分析中...',
+        duration: 0,
+        forbidClick: true,
+      });
+
+      return new Promise((resolve, reject) => {
+        const poll = async () => {
+          try {
+            const res = await getAnalysisRecord(recordId);
+            const record = res.data;
+            if (res.code === "0" && record && record.report) {
+              this.clearReportPolling();
+              this.$toast.clear();
+              resolve(record);
+              return;
+            }
+
+            this.reportPollingCount++;
+            if (this.reportPollingCount >= this.REPORT_POLL_MAX_COUNT) {
+              this.clearReportPolling();
+              this.$toast.clear();
+              reject(new Error('报告仍在生成中，请稍后在测评记录中查看'));
+              return;
+            }
+
+            this.reportPollingTimer = setTimeout(poll, this.REPORT_POLL_INTERVAL);
+          } catch (e) {
+            this.clearReportPolling();
+            this.$toast.clear();
+            reject(e);
+          }
+        };
+
+        poll();
+      });
+    },
+
     // 年龄选择确认
     async onAgeConfirm(value, index) {
+      if (this.submitting) {
+        return;
+      }
+      this.submitting = true;
       // 记录选择
       this.selectedAge = value.value;
       this.agePickerIndex = index;
@@ -342,6 +406,12 @@ export default {
         });
 
         if (res.code === "0") {
+          const recordId = res.data && res.data.recordId;
+          if (!recordId) {
+            this.$toast.fail("提交失败，缺少记录ID");
+            this.submitting = false;
+            return;
+          }
           this.$toast.success("提交成功");
 
           // 格式化完成时间
@@ -353,9 +423,12 @@ export default {
           const seconds = elapsedTime % 60;
           const durationText = minutes > 0 ? `${minutes}分${seconds}秒` : `${seconds}秒`;
 
+          await this.waitReportReady(recordId);
+
           this.$router.push({
             path: '/ruiWenEvaluationResult/',
             query: {
+              recordId: recordId,
               paperName: this.paperName || '瑞文智商测试',
               answerCount: String(this.totalQuestionNumber),
               finishTime: finishTime,
@@ -365,9 +438,11 @@ export default {
           });
         } else {
           this.$toast.fail(res.message || "提交失败");
+          this.submitting = false;
         }
       } catch (e) {
-        this.$toast.fail("提交异常");
+        this.$toast.fail(e.message || "提交异常");
+        this.submitting = false;
       }
     },
 
@@ -457,6 +532,8 @@ export default {
           v-if="currentQuestionNumber === totalQuestionNumber"
           type="danger"
           block
+          :loading="submitting"
+          :disabled="submitting"
           @click="handleSubmitClick"
       >
         提交测评

@@ -35,3 +35,8 @@ export function listAnalysisResult() {
     // return get(`/evaluation_system/analysis/listAnalysisResult/${userId}`);
     return get("/evaluation_system/analysis/listAnalysisResult");
 }
+
+// 获取分析记录详情
+export function getAnalysisRecord(recordId) {
+    return get(`/evaluation_system/analysis/record/${recordId}`);
+}

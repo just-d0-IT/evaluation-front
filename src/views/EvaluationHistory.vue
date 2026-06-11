@@ -5,7 +5,7 @@ import {me, wxLogin, wxPay} from "@/services/wx";
 import {Toast} from "vant";
 
 export default {
-  name: "PayView",
+  name: "EvaluationHistory",
   data() {
     return {
       /** 分析记录列表 */
@@ -207,7 +207,7 @@ export default {
   <div>
     <van-card
         v-for="item in analysisList"
-        :key="item.paperId"
+        :key="item.id"
         title="测评报告"
         desc="瑞文标准推理测验"
         thumb="https://img01.yzcdn.cn/vant/ipad.jpeg"
