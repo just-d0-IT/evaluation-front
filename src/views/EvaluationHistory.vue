@@ -1,8 +1,8 @@
 <script>
 
-import {listAnalysisResult} from "@/services/getData";
 import {me, wxLogin, wxPay} from "@/services/wx";
 import {Toast} from "vant";
+import {listAnalysisResult} from "@/services/getData";
 
 export default {
   name: "EvaluationHistory",
@@ -144,9 +144,9 @@ export default {
     getButtonText(status) {
       switch (status) {
         case "ANALYZING":
-          return "分析中";
+          return "分析中...";
         case "UNPAID":
-          return "未支付";
+          return "立即支付";
         case "PAID":
           return "查看报告";
         default:
@@ -154,15 +154,43 @@ export default {
       }
     },
 
-    /** 状态对应 tag 类型 */
-    getTagType(status) {
+    /** 状态显示文案 */
+    getStatusText(status) {
       switch (status) {
         case "ANALYZING":
-          return "warning";
+          return "分析中";
         case "UNPAID":
-          return "danger";
+          return "待支付";
         case "PAID":
-          return "success";
+          return "已完成";
+        default:
+          return "未知";
+      }
+    },
+
+    /** 状态样式类 */
+    getStatusClass(status) {
+      switch (status) {
+        case "ANALYZING":
+          return "analyzing";
+        case "UNPAID":
+          return "unpaid";
+        case "PAID":
+          return "paid";
+        default:
+          return "default";
+      }
+    },
+
+    /** 按钮样式类 */
+    getButtonClass(status) {
+      switch (status) {
+        case "ANALYZING":
+          return "analyzing";
+        case "UNPAID":
+          return "unpaid";
+        case "PAID":
+          return "paid";
         default:
           return "default";
       }
@@ -204,36 +232,392 @@ export default {
 </script>
 
 <template>
-  <div>
-    <van-card
-        v-for="item in analysisList"
-        :key="item.id"
-        title="测评报告"
-        desc="瑞文标准推理测验"
-        thumb="https://img01.yzcdn.cn/vant/ipad.jpeg"
-    >
-      <template #tags>
-        <van-tag plain :type="getTagType(item.status)">
-          {{ getButtonText(item.status) }}
-        </van-tag>
-      </template>
+  <div class="history-page">
+    <header class="page-header">
+      <h1 class="page-title">测评记录</h1>
+      <p class="page-subtitle">查看您的测评报告和历史记录</p>
+    </header>
 
-      <template #footer>
-        <van-button
-            size="mini"
-            type="primary"
-            :loading="item.loading"
-            :disabled="isDisabled(item.status)"
-            @click="handleButtonClick(item)"
+    <main class="content">
+      <!-- 空状态 -->
+      <div v-if="!analysisList.length" class="empty-state">
+        <div class="empty-icon">📋</div>
+        <p class="empty-text">暂无测评记录</p>
+        <p class="empty-hint">完成测评后，记录将显示在这里</p>
+      </div>
+
+      <!-- 记录列表 -->
+      <div v-else class="record-list">
+        <div
+            v-for="item in analysisList"
+            :key="item.id"
+            class="record-card"
         >
-          {{ getButtonText(item.status) }}
-        </van-button>
-      </template>
-    </van-card>
+          <div class="card-header">
+            <div class="card-icon">
+              <span class="icon-text">🧠</span>
+            </div>
+            <div class="card-info">
+              <h3 class="card-title">瑞文标准推理测验</h3>
+              <p class="card-desc">专业智商测评报告</p>
+            </div>
+            <div class="card-status">
+              <span class="status-tag" :class="getStatusClass(item.status)">
+                {{ getStatusText(item.status) }}
+              </span>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <div class="info-row">
+              <span class="info-label">测评编号</span>
+              <span class="info-value">{{ item.id }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">状态</span>
+              <span class="info-value">{{ getStatusText(item.status) }}</span>
+            </div>
+          </div>
+
+          <div class="card-footer">
+            <button
+                class="action-btn"
+                :class="getButtonClass(item.status)"
+                :disabled="isDisabled(item.status)"
+                @click="handleButtonClick(item)"
+            >
+              <span v-if="item.loading" class="btn-loading">
+                <span class="loading-dot"></span>
+                <span class="loading-dot"></span>
+                <span class="loading-dot"></span>
+              </span>
+              <span v-else>{{ getButtonText(item.status) }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
   </div>
 </template>
 
 
 <style scoped>
+.history-page {
+  min-height: 100vh;
+  background: #f5f5f5;
+  font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
 
+.page-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 40px 22px 30px;
+  text-align: center;
+}
+
+.page-title {
+  margin: 0 0 8px;
+  color: #fff;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.page-subtitle {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.content {
+  padding: 20px 16px 32px;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  opacity: 0.8;
+}
+
+.empty-text {
+  margin: 0 0 8px;
+  color: #333;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.empty-hint {
+  margin: 0;
+  color: #999;
+  font-size: 14px;
+}
+
+/* 记录列表 */
+.record-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.record-card {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.record-card:active {
+  transform: scale(0.98);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.card-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #e8f4fd 0%, #d4e8f7 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 14px;
+  flex-shrink: 0;
+}
+
+.icon-text {
+  font-size: 26px;
+}
+
+.card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-title {
+  margin: 0 0 4px;
+  color: #1a1a1a;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.card-desc {
+  margin: 0;
+  color: #999;
+  font-size: 13px;
+}
+
+.card-status {
+  margin-left: 12px;
+}
+
+.status-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.status-tag.analyzing {
+  background: #fff7e6;
+  color: #fa8c16;
+}
+
+.status-tag.unpaid {
+  background: #fff1f0;
+  color: #f5222d;
+}
+
+.status-tag.paid {
+  background: #f6ffed;
+  color: #52c41a;
+}
+
+.status-tag.default {
+  background: #f5f5f5;
+  color: #999;
+}
+
+.card-body {
+  padding: 16px 20px;
+  background: #fafafa;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.info-row:first-child {
+  padding-top: 0;
+}
+
+.info-row:last-child {
+  padding-bottom: 0;
+}
+
+.info-label {
+  color: #999;
+  font-size: 14px;
+}
+
+.info-value {
+  color: #333;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.card-footer {
+  padding: 16px 20px;
+}
+
+.action-btn {
+  width: 100%;
+  height: 48px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-btn.analyzing {
+  background: #f5f5f5;
+  color: #999;
+  cursor: not-allowed;
+}
+
+.action-btn.unpaid {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+}
+
+.action-btn.unpaid:active {
+  opacity: 0.9;
+  transform: scale(0.98);
+}
+
+.action-btn.paid {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  color: #fff;
+}
+
+.action-btn.paid:active {
+  opacity: 0.9;
+  transform: scale(0.98);
+}
+
+.action-btn.default {
+  background: #f5f5f5;
+  color: #999;
+}
+
+.action-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* 加载动画 */
+.btn-loading {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.loading-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #999;
+  animation: loading-bounce 1.4s infinite ease-in-out both;
+}
+
+.loading-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.loading-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes loading-bounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 360px) {
+  .page-header {
+    padding: 30px 16px 24px;
+  }
+
+  .page-title {
+    font-size: 24px;
+  }
+
+  .content {
+    padding: 16px 12px 24px;
+  }
+
+  .card-header {
+    padding: 16px;
+  }
+
+  .card-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    margin-right: 12px;
+  }
+
+  .icon-text {
+    font-size: 22px;
+  }
+
+  .card-title {
+    font-size: 16px;
+  }
+
+  .card-body {
+    padding: 12px 16px;
+  }
+
+  .card-footer {
+    padding: 12px 16px;
+  }
+
+  .action-btn {
+    height: 44px;
+    font-size: 15px;
+  }
+}
 </style>

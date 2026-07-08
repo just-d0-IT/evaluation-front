@@ -1,6 +1,13 @@
 <script>
-import {getAnalysisRecord, getTempAnswer, queryQuestion, restartEvaluation, saveTempAnswer, submitAnalysis} from "@/services/getData";
-import {wxLogin} from "@/services/wx";
+import {
+  getAnalysisRecord,
+  getTempAnswer,
+  queryQuestion,
+  restartEvaluation,
+  saveTempAnswer,
+  submitAnalysis
+} from "@/services/getData";
+import {me, wxLogin} from "@/services/wx";
 import {Dialog} from "vant";
 import CountUpTimer from "@/components/CountUpTimer.vue";
 
@@ -86,13 +93,13 @@ export default {
   methods: {
     /** 页面初始化 */
     async initPage() {
-      // const res = await me();
-      // // Toast("res status is " + res.status);
-      // if (res.status === 401) {
-      //   // 跳转微信登录
-      //   wxLogin();
-      //   return;
-      // }
+      const res = await me();
+      // Toast("res status is " + res.status);
+      if (res.status === 401) {
+        // 跳转微信登录
+        wxLogin();
+        return;
+      }
       // 加载数据
       await this.initAgeOptions();
       await this.initTempAnswer();
@@ -344,7 +351,7 @@ export default {
       this.clearReportPolling();
       this.reportPollingCount = 0;
       this.$toast.loading({
-        message: '报告分析中...',
+        message: 'AI分析中...请耐心等待报告生成',
         duration: 0,
         forbidClick: true,
       });
@@ -406,7 +413,7 @@ export default {
         });
 
         if (res.code === "0") {
-          const recordId = res.data && res.data.recordId;
+          const recordId = res.data;
           if (!recordId) {
             this.$toast.fail("提交失败，缺少记录ID");
             this.submitting = false;
@@ -482,7 +489,7 @@ export default {
       />
       <div class="question-meta">
         <span>第{{ currentQuestionNumber }}/{{ totalQuestionNumber }}题</span>
-        <count-up-timer ref="countUpTimer" />
+        <count-up-timer ref="countUpTimer"/>
       </div>
       <div class="question-instruction">请选择一个最适合填入空缺中的图形</div>
     </div>
