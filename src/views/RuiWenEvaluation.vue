@@ -144,7 +144,8 @@ export default {
               .then(async () => {
                 // ✅ 继续测评
                 this.answers = JSON.parse(res.data.answerDetails || "{}");
-                this.currentQuestionNumber = res.data.currentQuestionNumber || 1;
+                // 跳转至最小的未做题目
+                this.currentQuestionNumber = this.findFirstUnansweredNumber();
                 await this.fetchQuestion();
               })
               .catch(async () => {
@@ -159,6 +160,18 @@ export default {
         console.error(e);
         await this.fetchQuestion();
       }
+    },
+
+    /**
+     * @description 查找最小的未作答题目编号；若全部作答，则返回最后一题
+     */
+    findFirstUnansweredNumber() {
+      for (let i = 1; i <= this.totalQuestionNumber; i++) {
+        if (!this.answers[i]) {
+          return i;
+        }
+      }
+      return this.totalQuestionNumber;
     },
 
     /** 清除自动跳转定时器 */

@@ -63,9 +63,23 @@ export default {
 
     /** 微信支付 */
     async wxPay(recordId) {
-      const res = await wxPay(recordId);
-      const payParams = res.data;   // 这是 PrepayWithRequestPaymentResponse
-      this.invokeWxPay(payParams);
+      try {
+        const res = await wxPay(recordId);
+        // 后端业务异常（如“报告已支付”）以 HTTP 200 + code=-1 返回，需按业务码判断
+        if (res.code !== "0" || !res.data) {
+          const msg = res.msg || res.message || "拉起支付失败";
+          Toast(msg);
+          // 已支付：刷新列表以展示报告入口
+          if (msg.indexOf("已支付") !== -1) {
+            this.loadAnalysisList();
+          }
+          return;
+        }
+        const payParams = res.data;   // 这是 PrepayWithRequestPaymentResponse
+        this.invokeWxPay(payParams);
+      } catch (e) {
+        Toast((e && e.message) || e || "拉起支付失败");
+      }
     },
 
     invokeWxPay(pay) {

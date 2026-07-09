@@ -57,7 +57,7 @@ axios.interceptors.response.use(response => {
         if (status === 200) {
             return Promise.resolve({
                 data: data.data,
-                msg: data.msg,
+                msg: data.msg || data.message,
                 code: data.code,
             });
         }

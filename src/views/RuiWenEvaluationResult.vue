@@ -39,10 +39,6 @@ import {getAnalysisRecord} from "@/services/getData";
 import {wxPay} from "@/services/wx";
 import {Toast} from "vant";
 
-const DEFAULT_PAPER_NAME = "瑞文智商测试72题国际专业版";
-const DEFAULT_DURATION_TEXT = "1.4分钟";
-const DEFAULT_PARTICIPANT_COUNT = "175.31万";
-
 export default {
   name: "RuiWenEvaluationResult",
   data() {
@@ -52,30 +48,47 @@ export default {
       paymentPollingCount: 0,
     };
   },
+  created() {
+    if (!this.hasValidQuery()) {
+      Toast("未获取到测评数据，请重新测评");
+      this.$router.replace("/");
+    }
+  },
   beforeDestroy() {
     this.clearPaymentPolling();
   },
   computed: {
     paperName() {
-      return this.$route.query.paperName || DEFAULT_PAPER_NAME;
+      return this.$route.query.paperName;
     },
     answerCount() {
-      return this.$route.query.answerCount || 72;
+      return this.$route.query.answerCount;
     },
     finishTime() {
-      return this.$route.query.finishTime || "1970-00-00 00:00:00";
+      return this.$route.query.finishTime;
     },
     durationText() {
-      return this.$route.query.durationText || DEFAULT_DURATION_TEXT;
+      return this.$route.query.durationText;
     },
     participantCount() {
-      return this.$route.query.participantCount || DEFAULT_PARTICIPANT_COUNT;
+      return this.$route.query.participantCount;
     },
     recordId() {
       return this.$route.query.recordId;
     },
   },
   methods: {
+    hasValidQuery() {
+      const query = this.$route.query;
+      return Boolean(
+          query.paperName &&
+          query.answerCount &&
+          query.finishTime &&
+          query.durationText &&
+          query.participantCount &&
+          query.recordId
+      );
+    },
     async unlockReport() {
       if (!this.recordId) {
         Toast("缺少测评记录ID");
@@ -87,10 +100,22 @@ export default {
       this.paying = true;
       try {
         const res = await wxPay(this.recordId);
-        const payParams = res.data;
-        this.invokeWxPay(payParams);
+        // 后端业务异常（如“报告已支付”）以 HTTP 200 + code=-1 返回，需按业务码判断
+        if (res.code !== "0" || !res.data) {
+          const msg = res.msg || res.message || "拉起支付失败";
+          // 已支付：直接拉取并跳转报告，避免用户卡在支付页
+          if (msg.indexOf("已支付") !== -1) {
+            Toast("报告已支付，正在打开");
+            this.openReportAfterPaid();
+            return;
+          }
+          Toast(msg);
+          this.paying = false;
+          return;
+        }
+        this.invokeWxPay(res.data);
       } catch (e) {
-        Toast(e.message || "拉起支付失败");
+        Toast((e && e.message) || e || "拉起支付失败");
         this.paying = false;
       }
     },
